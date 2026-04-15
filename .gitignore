@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data files (too large for git)
+data/raw/climate/*.nc
+data/raw/boundaries/*.shp
+data/raw/boundaries/*.shx
+data/raw/boundaries/*.dbf
+data/raw/boundaries/*.prj
+data/raw/boundaries/*.cpg
+data/interim/
+data/processed/
+
+# Outputs (regenerable)
+outputs/figures/
+outputs/tables/
+outputs/reports/
+
+# Keep directory structure
+!data/raw/*/.gitkeep
+!data/interim/.gitkeep
+!data/processed/.gitkeep
+!outputs/figures/.gitkeep
+!outputs/tables/.gitkeep
+!outputs/reports/.gitkeep
+!notebooks/.gitkeep
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment
+.env
+*.env
+
+# uv
+uv.lock

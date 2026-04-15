@@ -1,0 +1,162 @@
+# ============================================================================
+# Heat-Mortality Italy Project Configuration
+# ============================================================================
+
+project:
+  name: "heat-mortality-italy"
+  description: "Extreme heat & regional mortality in Italy (2012-2022)"
+
+# ---------------------------------------------------------------------------
+# Study Parameters
+# ---------------------------------------------------------------------------
+study:
+  start_year: 2012
+  end_year: 2022
+  summer_months: [6, 7, 8, 9]  # June through September
+  country: "Italy"
+  country_code: "IT"
+  nuts_level: 2
+
+# ---------------------------------------------------------------------------
+# Heatwave Definition
+# ---------------------------------------------------------------------------
+heatwave:
+  # Region-specific percentile threshold for daily Tmax
+  percentile_threshold: 90
+  # Minimum consecutive days above threshold
+  min_consecutive_days: 3
+  # Reference period for computing percentile climatology
+  reference_start_year: 2012
+  reference_end_year: 2022
+  # Sensitivity thresholds to test
+  sensitivity_thresholds: [85, 90, 95]
+
+# ---------------------------------------------------------------------------
+# Temperature Variables
+# ---------------------------------------------------------------------------
+temperature:
+  primary_dataset: "era5_land"
+  variables:
+    - "2m_temperature"          # T2m (for Tmax, Tmin, Tmean)
+    - "2m_dewpoint_temperature" # For humidity / apparent temp calculation
+  # Bounding box for Italy [North, West, South, East]
+  bbox:
+    north: 47.5
+    south: 35.5
+    west: 6.5
+    east: 19.0
+
+# ---------------------------------------------------------------------------
+# RSVI (Regional Social Vulnerability Index)
+# ---------------------------------------------------------------------------
+rsvi:
+  # Thematic sub-indices and their component indicators
+  sub_indices:
+    demographic:
+      - pct_pop_65plus
+      - pct_pop_75plus
+      - pct_pop_80plus
+    economic:
+      - poverty_rate_absolute
+      - gdp_per_capita_inv     # Inverted: lower GDP = higher vulnerability
+      - disposable_income_inv  # Inverted
+    urban_infrastructure:
+      - population_density
+      - urbanization_rate
+
+  # Aggregation method for sub-indices → composite
+  aggregation: "equal_weight_mean"
+
+# ---------------------------------------------------------------------------
+# Panel Regression
+# ---------------------------------------------------------------------------
+regression:
+  # Dependent variable
+  dependent_var: "mortality_rate_std"  # Age-standardized mortality rate
+
+  # Independent variables for each model specification
+  models:
+    h1_base:
+      formula: "mortality_rate_std ~ hw_days + summer_tmax_anomaly + covid_deaths_rate"
+      fixed_effects: ["region", "year"]
+      description: "H1: Heat exposure → mortality"
+
+    h2_interaction:
+      formula: "mortality_rate_std ~ hw_days * rsvi + summer_tmax_anomaly * rsvi + covid_deaths_rate"
+      fixed_effects: ["region", "year"]
+      description: "H2: Heat × RSVI interaction"
+
+    h3_2022:
+      formula: "mortality_rate_std ~ hw_days * rsvi * d2022 + summer_tmax_anomaly * rsvi * d2022 + covid_deaths_rate"
+      fixed_effects: ["region", "year"]
+      description: "H3: 2022 amplification of inequality"
+
+  # Robustness checks
+  robustness:
+    cluster_se: "region"           # Cluster standard errors by region
+    exclude_2020: true             # Sensitivity: drop COVID year
+    alternative_hw_thresholds: true # Test 85th and 95th percentile
+
+# ---------------------------------------------------------------------------
+# Case Studies
+# ---------------------------------------------------------------------------
+case_studies:
+  pairs:
+    - name: "Economic Divide"
+      high_vulnerability: "Calabria"
+      low_vulnerability: "Lombardia"
+      rationale: "North-south socioeconomic gradient"
+
+    - name: "Urban vs Rural"
+      high_vulnerability: "Lazio"
+      low_vulnerability: "Trentino-Alto Adige"
+      rationale: "Urban heat island effect"
+
+    - name: "Climate Control"
+      high_vulnerability: "Puglia"
+      low_vulnerability: "Emilia-Romagna"
+      rationale: "Similar climate, different economic vulnerability"
+
+# ---------------------------------------------------------------------------
+# Italian NUTS-2 Regions
+# ---------------------------------------------------------------------------
+regions:
+  nuts2_codes:
+    ITC1: "Piemonte"
+    ITC2: "Valle d'Aosta"
+    ITC3: "Liguria"
+    ITC4: "Lombardia"
+    ITH1: "Trentino-Alto Adige"
+    ITH2: "Veneto"  # Note: sometimes coded as ITD3
+    ITH3: "Friuli-Venezia Giulia"
+    ITH4: "Emilia-Romagna"  # Note: sometimes coded as ITD5
+    ITI1: "Toscana"
+    ITI2: "Umbria"
+    ITI3: "Marche"
+    ITI4: "Lazio"
+    ITF1: "Abruzzo"
+    ITF2: "Molise"
+    ITF3: "Campania"
+    ITF4: "Puglia"
+    ITF5: "Basilicata"
+    ITF6: "Calabria"
+    ITG1: "Sicilia"
+    ITG2: "Sardegna"
+
+# ---------------------------------------------------------------------------
+# Paths (relative to project root)
+# ---------------------------------------------------------------------------
+paths:
+  raw_data: "data/raw"
+  interim_data: "data/interim"
+  processed_data: "data/processed"
+  figures: "outputs/figures"
+  tables: "outputs/tables"
+  reports: "outputs/reports"
+
+# ---------------------------------------------------------------------------
+# CDS API (ERA5-Land download)
+# ---------------------------------------------------------------------------
+cds_api:
+  url: "https://cds.climate.copernicus.eu/api"
+  # key: "YOUR_CDS_API_KEY"  # Set via environment variable CDS_API_KEY
