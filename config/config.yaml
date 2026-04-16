@@ -35,7 +35,8 @@ heatwave:
 # Temperature Variables
 # ---------------------------------------------------------------------------
 temperature:
-  primary_dataset: "era5_land"
+  # Options: "era5_land" (CDS API) or "earthmover" (AWS Zarr)
+  primary_dataset: "earthmover" 
   variables:
     - "2m_temperature"          # T2m (for Tmax, Tmin, Tmean)
     - "2m_dewpoint_temperature" # For humidity / apparent temp calculation
@@ -45,6 +46,18 @@ temperature:
     south: 35.5
     west: 6.5
     east: 19.0
+
+# ---------------------------------------------------------------------------
+# Earthmover ERA5 (AWS Zarr)
+# ---------------------------------------------------------------------------
+earthmover:
+  repo: "earthmover-public/era5-surface-aws"
+  branch: "main"
+  group: "spatial"
+  # Mapping from Earthmover names to project internal names
+  variable_mapping:
+    t2: "t2m"
+    d2: "d2m"
 
 # ---------------------------------------------------------------------------
 # RSVI (Regional Social Vulnerability Index)

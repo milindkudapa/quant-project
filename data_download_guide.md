@@ -11,7 +11,8 @@ Step-by-step instructions for downloading all data needed for the project.
 | Data | Source | Free? | Download Method | Save To |
 |---|---|---|---|---|
 | NUTS-2 Boundaries | Eurostat GISCO | ✅ Yes | Automated (script) | `data/raw/boundaries/` |
-| ERA5-Land Climate | Copernicus CDS | ✅ Yes (registration) | Automated (API) | `data/raw/climate/` |
+| ERA5 Climate (Recommended) | Earthmover (AWS) | ✅ Yes | Automated (script/API) | `data/raw/climate/` |
+| ERA5-Land (Alternative) | Copernicus CDS | ✅ Yes (registration) | Automated (API) | `data/raw/climate/` |
 | Mortality Data | Eurostat | ✅ Yes | Manual download | `data/raw/mortality/` |
 | Age Structure | ISTAT I.Stat | ✅ Yes | Manual download | `data/raw/socioeconomic/` |
 | GDP per Capita | Eurostat | ✅ Yes | Manual download | `data/raw/socioeconomic/` |
@@ -43,34 +44,58 @@ ls data/raw/boundaries/
 
 ---
 
-## 2. ERA5-Land Climate Data (Automated, but requires setup)
+## 2. ERA5 Climate Data (Recommended — Fast & Simple)
+
+**Source:** Earthmover (AWS Zarr)  
+**What:** Hourly 2m temperature and dewpoint for Italy, June–September, 2012–2022.  
+**Benefit:** No account registration needed. Downloading 11 years takes **~5 minutes** instead of hours.
+
+### Steps
+
+This is automated via a dedicated script that streams the data directly from AWS and saves only the Italy subset locally.
+
+**Download all years:**
+```bash
+uv run python scripts/download_data.py --source earthmover
+```
+
+**Verify:**
+```bash
+ls -lh data/raw/climate/
+# Should see: era5_earthmover_italy_2012.nc through era5_earthmover_italy_2022.nc
+```
+
+---
+
+## 3. ERA5-Land Climate Data (Alternative — CDS API)
 
 **Source:** Copernicus Climate Data Store (CDS)  
 **What:** Hourly 2m temperature and dewpoint for Italy, June–September, 2012–2022  
 **Size:** ~500 MB–1 GB per year, ~5–10 GB total
+**Note:** Use this only if the Earthmover source is unavailable. Requires registration.
 
-### Step 2.1 — Register for CDS Account
+### Step 3.1 — Register for CDS Account
 
 1. Go to **https://cds.climate.copernicus.eu/**
 2. Click **"Register"** (top right)
 3. Fill in the registration form — use your Columbia email
 4. Verify your email and log in
 
-### Step 2.2 — Accept the ERA5-Land Licence
+### Step 3.2 — Accept the ERA5-Land Licence
 
 1. Go to **https://cds.climate.copernicus.eu/datasets/reanalysis-era5-land**
 2. Scroll down to the **"Terms of use"** section
 3. Click **"Accept"** on the licence agreement
 4. ⚠️ You MUST accept this or the API downloads will fail
 
-### Step 2.3 — Get Your API Key
+### Step 3.3 — Get Your API Key
 
 1. Log into CDS and go to your **profile page**: https://cds.climate.copernicus.eu/profile
 2. Scroll down to the **"Personal Access Token"** section
 3. Click **"Generate Token"** if you don't have one
 4. Copy the full token string
 
-### Step 2.4 — Configure the API Key
+### Step 3.4 — Configure the API Key
 
 **Option A (recommended):** Set as environment variable:
 ```bash
@@ -98,25 +123,12 @@ cds_api:
   key: "your-token-here"
 ```
 
-### Step 2.5 — Download the Data
-
-**Test with one year first:**
-```bash
-uv run python -c "
-from src.data.download_era5 import download_era5_year
-from src.utils.config import load_config, get_path
-cfg = load_config()
-output_dir = get_path(cfg, 'raw_data') / 'climate'
-download_era5_year(2022, cfg, output_dir)
-"
-```
+### Step 3.5 — Download the Data
 
 **Download all years:**
 ```bash
 uv run python scripts/download_data.py --source era5
 ```
-
-Or in Notebook 01, uncomment and run the download cells.
 
 ⏱ **Each year takes ~15–30 minutes.** The full download (11 years) may take 3–6 hours. You can leave it running overnight.
 

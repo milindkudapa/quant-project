@@ -198,13 +198,22 @@ def process_climate_data(
     end = cfg["study"]["end_year"]
 
     for year in range(start, end + 1):
+        # Support both standard CDS and Earthmover filename patterns
         nc_file = raw_dir / f"era5land_italy_{year}.nc"
+        if not nc_file.exists():
+             nc_file = raw_dir / f"era5_earthmover_italy_{year}.nc"
+            
         if not nc_file.exists():
             logger.warning(f"Missing ERA5-Land file for {year}: {nc_file}")
             continue
 
-        logger.info(f"Processing ERA5-Land {year}...")
+        logger.info(f"Processing ERA5-Land {year} (Source: {nc_file.name})...")
         ds = xr.open_dataset(nc_file)
+        
+        # Ensure standard coordinate names
+        if "time" in ds.coords and "valid_time" not in ds.coords:
+            ds = ds.rename({"time": "valid_time"})
+            
         daily = compute_daily_stats(ds)
         regional = spatial_average_to_nuts2(daily, nuts2_gdf)
         all_frames.append(regional)

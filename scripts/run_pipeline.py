@@ -81,8 +81,15 @@ def run_step(step_name: str, cfg: dict) -> None:
         setup_boundaries(cfg)
 
     elif step_name == "download_era5":
-        from src.data.download_era5 import download_all_era5
-        download_all_era5(cfg)
+        source = cfg["temperature"].get("primary_dataset", "era5_land")
+        if source == "earthmover":
+            logger.info("Using Earthmover (AWS Zarr) for climate data...")
+            from src.data.download_earthmover import download_all_earthmover
+            download_all_earthmover(cfg)
+        else:
+            logger.info("Using CDS API for climate data...")
+            from src.data.download_era5 import download_all_era5
+            download_all_era5(cfg)
 
     elif step_name == "process_climate":
         from src.data.process_climate import process_climate_data

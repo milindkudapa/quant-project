@@ -19,7 +19,7 @@ from src.utils.config import load_config
 @click.command()
 @click.option(
     "--source",
-    type=click.Choice(["all", "era5", "boundaries"]),
+    type=click.Choice(["all", "era5", "earthmover", "boundaries"]),
     default="all",
     help="Data source to download",
 )
@@ -35,9 +35,14 @@ def main(source: str, overwrite: bool, config: str | None):
         setup_boundaries(cfg)
 
     if source in ("all", "era5"):
-        logger.info("Downloading ERA5-Land data...")
+        logger.info("Downloading ERA5-Land data (CDS API)...")
         from src.data.download_era5 import download_all_era5
         download_all_era5(cfg, overwrite=overwrite)
+
+    if source == "earthmover":
+        logger.info("Downloading ERA5 data via Earthmover (AWS Zarr)...")
+        from src.data.download_earthmover import download_all_earthmover
+        download_all_earthmover(cfg, overwrite=overwrite)
 
     logger.success("Download complete!")
 
