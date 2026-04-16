@@ -1,0 +1,1114 @@
+
+
+===== notebooks/01_setup_and_download.ipynb =====
+
+import sys
+import os
+
+# Ensure project root is on the path
+project_root = os.path.abspath(os.path.join(os.getcwd(), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+print(f"Project root: {project_root}")
+print(f"Python: {sys.version}")
+
+---
+
+# Test that key packages are available
+import pandas as pd
+import numpy as np
+import xarray as xr
+import geopandas as gpd
+import matplotlib.pyplot as plt
+import arraylake
+
+print(f"pandas:     {pd.__version__}")
+print(f"numpy:      {np.__version__}")
+print(f"xarray:     {xr.__version__}")
+print(f"geopandas:  {gpd.__version__}")
+print(f"arraylake:  {arraylake.__version__}")
+print("\n✅ All key packages imported successfully")
+
+---
+
+from src.utils.config import load_config, get_path, get_region_mapping
+
+cfg = load_config()
+
+print(f"Study period: {cfg['study']['start_year']}–{cfg['study']['end_year']}")
+print(f"Summer months: {cfg['study']['summer_months']}")
+print(f"Configured climate source: {cfg['temperature']['primary_dataset']}")
+
+---
+
+from src.data.nuts2_boundaries import setup_boundaries
+
+# Download boundaries (skips if already downloaded)
+italy_nuts2 = setup_boundaries(cfg)
+
+print(f"\nLoaded {len(italy_nuts2)} Italian NUTS-2 regions")
+
+# Quick map
+fig, ax = plt.subplots(1, 1, figsize=(6, 8))
+italy_nuts2.plot(ax=ax, edgecolor='black', facecolor='lightblue', linewidth=0.5)
+ax.set_title('Italian NUTS-2 Regions', fontweight='bold')
+ax.set_axis_off()
+plt.show()
+
+---
+
+# Download via Earthmover (Recommended)
+from src.data.download_earthmover import download_all_earthmover
+
+# Set primary_dataset to 'earthmover' in config.yaml to use this by default
+if cfg['temperature']['primary_dataset'] == 'earthmover':
+    print("Starting Earthmover download...")
+    # download_all_earthmover(cfg)  # Uncomment to run
+else:
+    print("Primary source is not Earthmover. Skipping automated cellular download.")
+
+---
+
+# Verify downloaded files
+climate_dir = get_path(cfg, 'raw_data') / 'climate'
+files = sorted(list(climate_dir.glob('*.nc')))
+print(f"Found {len(files)} climate files in {climate_dir}:")
+for f in files[:5]:
+    print(f"  {f.name}")
+if len(files) > 5:
+    print("  ...")
+
+---
+
+
+
+===== notebooks/02_process_data.ipynb =====
+
+import sys, os
+project_root = os.path.abspath(os.path.join(os.getcwd(), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from src.utils.config import load_config, get_path
+
+cfg = load_config()
+print("Configuration loaded.")
+
+---
+
+# First, inspect a sample ERA5-Land file to understand its structure
+import xarray as xr
+
+climate_dir = get_path(cfg, 'raw_data') / 'climate'
+nc_files = sorted(climate_dir.glob('*.nc'))
+
+if nc_files:
+    sample_file = nc_files[0]
+    print(f"Inspecting: {sample_file.name}\n")
+    
+    ds = xr.open_dataset(sample_file)
+    print(ds)
+    print(f"\nVariables: {list(ds.data_vars)}")
+    print(f"Coordinates: {list(ds.coords)}")
+    print(f"Time range: {ds.valid_time.values[0]} → {ds.valid_time.values[-1]}")
+    ds.close()
+else:
+    print("No ERA5-Land files found. Download them first (see Notebook 01).")
+
+---
+
+# Step-by-step: compute daily stats from hourly data
+from src.utils.constants import KELVIN_OFFSET
+
+if nc_files:
+    ds = xr.open_dataset(nc_files[0])
+    
+    # Convert Kelvin to Celsius
+    t2m_c = ds['t2m'] - KELVIN_OFFSET
+    
+    # Compute daily statistics
+    daily_tmax = t2m_c.resample(valid_time='1D').max()
+    daily_tmin = t2m_c.resample(valid_time='1D').min()
+    daily_tmean = t2m_c.resample(valid_time='1D').mean()
+    
+    print(f"Daily Tmax shape: {daily_tmax.shape}")
+    print(f"Date range: {daily_tmax.valid_time.values[0]} → {daily_tmax.valid_time.values[-1]}")
+    print(f"Spatial grid: {daily_tmax.shape[1]} lat × {daily_tmax.shape[2]} lon")
+    
+    # Show a sample map
+    fig, ax = plt.subplots(figsize=(8, 6))
+    daily_tmax.isel(valid_time=30).plot(ax=ax, cmap='YlOrRd')
+    ax.set_title(f'Daily Tmax — {str(daily_tmax.valid_time.values[30])[:10]}')
+    plt.tight_layout()
+    plt.show()
+    
+    ds.close()
+
+---
+
+# Run the full climate processing pipeline
+# This processes all years and aggregates to NUTS-2 regions
+
+# ⚠️ This step can take 10-30 minutes depending on data size
+
+# from src.data.process_climate import process_climate_data
+# daily_climate = process_climate_data(cfg)
+# print(f"Processed {len(daily_climate)} daily records")
+# daily_climate.head()
+
+---
+
+# If already processed, load the interim data
+climate_path = get_path(cfg, 'interim_data') / 'daily_regional_climate.parquet'
+
+if climate_path.exists():
+    daily_climate = pd.read_parquet(climate_path)
+    daily_climate['date'] = pd.to_datetime(daily_climate['date'])
+    
+    print(f"Shape: {daily_climate.shape}")
+    print(f"Date range: {daily_climate['date'].min()} → {daily_climate['date'].max()}")
+    print(f"Regions: {daily_climate['nuts2_code'].nunique()}")
+    print(f"\nColumns: {daily_climate.columns.tolist()}")
+    print(f"\nSample:")
+    display(daily_climate.head(10))
+else:
+    print(f"Climate data not yet processed. Uncomment the cell above to run.")
+
+---
+
+# Check what mortality files are available
+mort_dir = get_path(cfg, 'raw_data') / 'mortality'
+mort_files = [f for f in mort_dir.iterdir() if f.name != '.gitkeep']
+
+if mort_files:
+    print(f"Found {len(mort_files)} mortality files:")
+    for f in mort_files:
+        size_mb = f.stat().st_size / (1024 * 1024)
+        print(f"  {f.name}  ({size_mb:.1f} MB)")
+    
+    # Preview the first file
+    f = mort_files[0]
+    if f.suffix == '.csv':
+        preview = pd.read_csv(f, nrows=5)
+    elif f.suffix == '.xlsx':
+        preview = pd.read_excel(f, nrows=5)
+    else:
+        preview = None
+    
+    if preview is not None:
+        print(f"\nPreview of {f.name}:")
+        print(f"Columns: {preview.columns.tolist()}")
+        display(preview)
+else:
+    print("No mortality data found. See data_download_guide.md for instructions.")
+
+---
+
+# Process mortality data (uncomment when files are available)
+
+# from src.data.process_mortality import process_mortality_data
+#
+# mortality = process_mortality_data(cfg)
+# if not mortality.empty:
+#     print(f"Processed mortality data: {mortality.shape}")
+#     display(mortality.head())
+# else:
+#     print("No mortality data processed — check column format.")
+
+---
+
+# Check what socioeconomic files are available
+socio_dir = get_path(cfg, 'raw_data') / 'socioeconomic'
+socio_files = [f for f in socio_dir.iterdir() if f.name != '.gitkeep']
+
+if socio_files:
+    print(f"Found {len(socio_files)} socioeconomic files:")
+    for f in socio_files:
+        size_mb = f.stat().st_size / (1024 * 1024)
+        print(f"  {f.name}  ({size_mb:.1f} MB)")
+        
+        # Preview
+        try:
+            if f.suffix == '.csv':
+                preview = pd.read_csv(f, nrows=3)
+            elif f.suffix == '.xlsx':
+                preview = pd.read_excel(f, nrows=3)
+            else:
+                continue
+            print(f"  Columns: {preview.columns.tolist()}")
+        except Exception as e:
+            print(f"  Error reading: {e}")
+else:
+    print("No socioeconomic data found. See data_download_guide.md for instructions.")
+
+---
+
+# Process socioeconomic data (uncomment when files are available)
+
+# from src.data.process_socioeconomic import process_socioeconomic_data
+#
+# socio = process_socioeconomic_data(cfg)
+# if not socio.empty:
+#     print(f"Processed socioeconomic data: {socio.shape}")
+#     display(socio.head())
+# else:
+#     print("No socioeconomic data processed.")
+
+---
+
+interim_dir = get_path(cfg, 'interim_data')
+
+expected_files = [
+    'daily_regional_climate.parquet',
+    'mortality_processed.parquet',
+    'socioeconomic_processed.parquet',
+]
+
+print("Interim data status:")
+for fname in expected_files:
+    path = interim_dir / fname
+    if path.exists():
+        size_mb = path.stat().st_size / (1024 * 1024)
+        print(f"  ✅ {fname}  ({size_mb:.1f} MB)")
+    else:
+        print(f"  ❌ {fname}  (not yet created)")
+
+print("\n➡️ Next: Notebook 03 — Feature Engineering")
+
+---
+
+
+
+===== notebooks/03_feature_engineering.ipynb =====
+
+import sys, os
+project_root = os.path.abspath(os.path.join(os.getcwd(), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from src.utils.config import load_config, get_path
+from src.utils.io import load_dataframe
+
+cfg = load_config()
+print("Ready.")
+
+---
+
+# Load daily climate data
+climate_path = get_path(cfg, 'interim_data') / 'daily_regional_climate.parquet'
+
+if climate_path.exists():
+    daily = pd.read_parquet(climate_path)
+    daily['date'] = pd.to_datetime(daily['date'])
+    print(f"Loaded {len(daily)} daily climate records")
+    print(f"Regions: {daily['nuts2_code'].nunique()}")
+    print(f"Date range: {daily['date'].min()} → {daily['date'].max()}")
+else:
+    print("❌ Daily climate data not found. Run Notebook 02 first.")
+    print("   Using synthetic data for demonstration...")
+    
+    # Generate synthetic data for demonstration
+    np.random.seed(42)
+    dates = pd.date_range('2012-06-01', '2022-09-30', freq='D')
+    dates = dates[dates.month.isin([6, 7, 8, 9])]
+    regions = ['ITC4', 'ITF6', 'ITI4', 'ITF4', 'ITH4']
+    records = []
+    for region in regions:
+        base = {'ITC4': 28, 'ITF6': 32, 'ITI4': 30, 'ITF4': 31, 'ITH4': 29}[region]
+        for d in dates:
+            records.append({
+                'date': d, 'nuts2_code': region,
+                'tmax': base + np.random.normal(0, 4),
+                'tmin': base - 8 + np.random.normal(0, 3),
+                'tmean': base - 4 + np.random.normal(0, 3),
+                'dewpoint_mean': base - 15 + np.random.normal(0, 3),
+            })
+    daily = pd.DataFrame(records)
+    print(f"Generated {len(daily)} synthetic records for demonstration")
+
+---
+
+# Step 1: Compute region-specific percentile thresholds
+from src.features.heatwave import compute_percentile_thresholds
+
+hw_cfg = cfg['heatwave']
+thresholds = compute_percentile_thresholds(
+    daily,
+    percentile=hw_cfg['percentile_threshold'],
+    reference_start=hw_cfg['reference_start_year'],
+    reference_end=hw_cfg['reference_end_year'],
+)
+
+print("\n90th Percentile Tmax Thresholds (°C):")
+print(thresholds.sort_values(ascending=False).to_string())
+
+---
+
+# Step 2: Detect heatwave days
+from src.features.heatwave import detect_heatwave_days
+
+hw_daily = detect_heatwave_days(
+    daily, thresholds,
+    min_consecutive=hw_cfg['min_consecutive_days'],
+)
+
+# Show results
+n_hw = hw_daily['is_heatwave_day'].sum()
+n_events = hw_daily['hw_event_id'].max()
+print(f"\nTotal heatwave days: {n_hw}")
+print(f"Total heatwave events: {n_events}")
+print(f"\nHeatwave days per region:")
+print(hw_daily.groupby('nuts2_code')['is_heatwave_day'].sum().sort_values(ascending=False))
+
+---
+
+# Visualize: heatwave detection for one region in one year
+region = hw_daily['nuts2_code'].unique()[0]
+year = 2022
+
+mask = (hw_daily['nuts2_code'] == region) & (hw_daily['date'].dt.year == year)
+subset = hw_daily[mask].copy()
+
+fig, ax = plt.subplots(figsize=(14, 5))
+ax.plot(subset['date'], subset['tmax'], color='#2c3e50', linewidth=1, label='Daily Tmax')
+ax.axhline(y=subset['threshold'].iloc[0], color='red', linestyle='--',
+           alpha=0.7, label=f'90th pctl ({subset["threshold"].iloc[0]:.1f}°C)')
+
+# Shade heatwave days
+hw_mask = subset['is_heatwave_day']
+ax.fill_between(subset['date'], ax.get_ylim()[0], ax.get_ylim()[1],
+                where=hw_mask, alpha=0.2, color='red', label='Heatwave days')
+
+ax.set_xlabel('Date')
+ax.set_ylabel('Tmax (°C)')
+ax.set_title(f'Heatwave Detection — {region}, Summer {year}', fontweight='bold')
+ax.legend()
+ax.grid(True, alpha=0.3)
+plt.tight_layout()
+plt.show()
+
+---
+
+# Step 3: Compute seasonal heatwave metrics
+from src.features.heatwave import compute_heatwave_metrics
+
+hw_metrics = compute_heatwave_metrics(hw_daily)
+
+print(f"Heatwave metrics shape: {hw_metrics.shape}")
+print(f"\nColumns: {hw_metrics.columns.tolist()}")
+print(f"\nSample (top 10 by HW days):")
+display(hw_metrics.nlargest(10, 'hw_days'))
+
+---
+
+from src.features.temperature import (
+    compute_relative_humidity,
+    compute_apparent_temperature,
+    compute_wbgt_approximation,
+    add_temperature_features,
+)
+
+# Add derived features to daily climate data
+daily_enhanced = add_temperature_features(daily)
+
+print("New columns added:")
+new_cols = ['rh_mean', 'apparent_tmax', 'wbgt_mean', 'wbgt_max']
+for col in new_cols:
+    if col in daily_enhanced.columns:
+        print(f"  {col}: mean={daily_enhanced[col].mean():.1f}, "
+              f"std={daily_enhanced[col].std():.1f}")
+
+---
+
+# Visualize: Tmax vs Apparent Temperature
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+axes[0].scatter(daily_enhanced['tmax'], daily_enhanced['apparent_tmax'],
+                alpha=0.1, s=5, c=daily_enhanced['rh_mean'], cmap='Blues')
+axes[0].plot([20, 45], [20, 45], 'r--', alpha=0.5, label='1:1 line')
+axes[0].set_xlabel('Tmax (°C)')
+axes[0].set_ylabel('Apparent Tmax (°C)')
+axes[0].set_title('Tmax vs Apparent Temperature')
+axes[0].legend()
+
+axes[1].hist(daily_enhanced['rh_mean'].dropna(), bins=50, color='steelblue', alpha=0.8)
+axes[1].set_xlabel('Relative Humidity (%)')
+axes[1].set_ylabel('Count')
+axes[1].set_title('Distribution of Mean Relative Humidity')
+
+plt.suptitle('Humidity-Adjusted Temperature Features', fontweight='bold')
+plt.tight_layout()
+plt.show()
+
+---
+
+# Check if socioeconomic data exists
+socio_path = get_path(cfg, 'interim_data') / 'socioeconomic_processed.parquet'
+
+if socio_path.exists():
+    socio = pd.read_parquet(socio_path)
+    print(f"Loaded socioeconomic data: {socio.shape}")
+    display(socio.head())
+else:
+    print("❌ Socioeconomic data not found.")
+    print("   Using synthetic data for demonstration...")
+    
+    np.random.seed(42)
+    regions = ['ITC4', 'ITF6', 'ITI4', 'ITF4', 'ITH4']
+    years = range(2012, 2023)
+    records = []
+    for region in regions:
+        # Create realistic variation by region
+        vuln_base = {'ITC4': 0.3, 'ITF6': 0.8, 'ITI4': 0.5, 'ITF4': 0.7, 'ITH4': 0.4}[region]
+        for year in years:
+            records.append({
+                'nuts2_code': region, 'year': year,
+                'pct_pop_65plus': 20 + vuln_base * 10 + np.random.normal(0, 1),
+                'pct_pop_75plus': 10 + vuln_base * 5 + np.random.normal(0, 0.5),
+                'pct_pop_80plus': 5 + vuln_base * 3 + np.random.normal(0, 0.3),
+                'poverty_rate_absolute': 5 + vuln_base * 20 + np.random.normal(0, 2),
+                'gdp_per_capita_inv': -(40000 - vuln_base * 20000 + np.random.normal(0, 1000)),
+                'disposable_income_inv': -(25000 - vuln_base * 10000 + np.random.normal(0, 500)),
+                'population_density': 100 + vuln_base * 200 + np.random.normal(0, 20),
+                'urbanization_rate': 50 + vuln_base * 30 + np.random.normal(0, 3),
+            })
+    socio = pd.DataFrame(records)
+    print(f"Generated synthetic socioeconomic data: {socio.shape}")
+
+---
+
+# Step 1: Percentile rank indicators
+from src.features.rsvi import percentile_rank_within_year
+
+rsvi_cfg = cfg['rsvi']
+all_indicators = []
+for indicators in rsvi_cfg['sub_indices'].values():
+    all_indicators.extend(indicators)
+
+print(f"Indicators to rank: {all_indicators}")
+ranked = percentile_rank_within_year(socio, all_indicators)
+
+# Show percentile columns
+pctl_cols = [c for c in ranked.columns if c.endswith('_pctl')]
+print(f"\nPercentile columns created: {pctl_cols}")
+display(ranked[['nuts2_code', 'year'] + pctl_cols].head(10))
+
+---
+
+# Step 2: Compute sub-indices
+from src.features.rsvi import compute_sub_indices
+
+with_subs = compute_sub_indices(ranked, rsvi_cfg['sub_indices'])
+
+sub_cols = [c for c in with_subs.columns if c.startswith('subidx_')]
+print(f"Sub-indices: {sub_cols}")
+display(with_subs[['nuts2_code', 'year'] + sub_cols].head(10))
+
+---
+
+# Step 3: Composite RSVI
+from src.features.rsvi import compute_composite_rsvi
+
+sub_names = list(rsvi_cfg['sub_indices'].keys())
+rsvi_df = compute_composite_rsvi(with_subs, sub_names, method=rsvi_cfg['aggregation'])
+
+print("\nRSVI by region (mean across years):")
+rsvi_summary = rsvi_df.groupby('nuts2_code')['rsvi'].mean().sort_values(ascending=False)
+print(rsvi_summary.to_string())
+
+---
+
+# Visualize RSVI components
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+
+# Heatmap of sub-indices by region
+pivot = rsvi_df.groupby('nuts2_code')[sub_cols + ['rsvi']].mean()
+pivot = pivot.sort_values('rsvi', ascending=False)
+sns.heatmap(pivot, annot=True, fmt='.2f', cmap='YlOrRd', ax=axes[0])
+axes[0].set_title('RSVI Components by Region', fontweight='bold')
+
+# RSVI distribution
+axes[1].hist(rsvi_df['rsvi'], bins=20, color='#e74c3c', alpha=0.8, edgecolor='white')
+axes[1].set_xlabel('RSVI Score')
+axes[1].set_ylabel('Count')
+axes[1].set_title('RSVI Distribution', fontweight='bold')
+axes[1].axvline(rsvi_df['rsvi'].median(), color='black', linestyle='--', label='Median')
+axes[1].legend()
+
+plt.tight_layout()
+plt.show()
+
+---
+
+from src.utils.io import save_dataframe
+
+interim_dir = get_path(cfg, 'interim_data')
+
+# Save heatwave metrics
+save_dataframe(hw_metrics, interim_dir / 'heatwave_metrics.parquet', index=False)
+
+# Save RSVI
+rsvi_output = rsvi_df[['nuts2_code', 'year', 'rsvi'] + sub_cols].copy()
+save_dataframe(rsvi_output, interim_dir / 'rsvi.parquet', index=False)
+
+print("\n✅ Features saved to data/interim/")
+print("\n➡️ Next: Notebook 04 — Panel Assembly & EDA")
+
+---
+
+
+
+===== notebooks/04_panel_eda.ipynb =====
+
+import sys, os
+project_root = os.path.abspath(os.path.join(os.getcwd(), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+from src.utils.config import load_config, get_path
+from src.utils.io import load_dataframe, save_dataframe
+
+cfg = load_config()
+print("Ready.")
+
+---
+
+# Load all interim components
+interim_dir = get_path(cfg, 'interim_data')
+
+# Heatwave metrics (required)
+hw = load_dataframe(interim_dir / 'heatwave_metrics.parquet')
+print(f"Heatwave: {hw.shape}")
+
+# Mortality (if available)
+mort_path = interim_dir / 'mortality_processed.parquet'
+mort = load_dataframe(mort_path) if mort_path.exists() else pd.DataFrame()
+print(f"Mortality: {mort.shape if not mort.empty else 'not available'}")
+
+# RSVI (if available)
+rsvi_path = interim_dir / 'rsvi.parquet'
+rsvi = load_dataframe(rsvi_path) if rsvi_path.exists() else pd.DataFrame()
+print(f"RSVI: {rsvi.shape if not rsvi.empty else 'not available'}")
+
+---
+
+# Merge into panel
+from src.analysis.panel_dataset import merge_panel_components, add_derived_variables
+
+panel = merge_panel_components(mort, hw, rsvi)
+panel = add_derived_variables(panel)
+
+print(f"\nPanel dataset: {panel.shape}")
+print(f"Regions: {panel['nuts2_code'].nunique()}")
+print(f"Years: {sorted(panel['year'].unique())}")
+print(f"\nColumns ({len(panel.columns)}):")
+for col in panel.columns:
+    dtype = panel[col].dtype
+    missing = panel[col].isna().sum()
+    print(f"  {col:<35s} {str(dtype):<10s} (missing: {missing})")
+
+---
+
+# Save panel
+processed_dir = get_path(cfg, 'processed_data')
+save_dataframe(panel, processed_dir / 'panel_dataset.csv', index=False)
+save_dataframe(panel, processed_dir / 'panel_dataset.parquet', index=False)
+
+print("✅ Panel dataset saved.")
+
+---
+
+from src.analysis.eda import summary_statistics, summary_by_region
+
+stats = summary_statistics(panel)
+print("Overall Summary Statistics:")
+display(stats)
+
+---
+
+# Regional means
+regional = summary_by_region(panel)
+print("Regional Summary (means):")
+display(regional)
+
+---
+
+from src.analysis.eda import correlation_matrix
+
+fig_dir = get_path(cfg, 'figures')
+fig_dir.mkdir(parents=True, exist_ok=True)
+
+corr = correlation_matrix(panel, output_path=fig_dir / 'correlation_matrix.png')
+
+# Also display inline
+key_vars = ['mortality_rate', 'hw_days', 'hw_intensity', 'summer_tmax_anomaly', 'rsvi']
+available = [v for v in key_vars if v in panel.columns]
+
+fig, ax = plt.subplots(figsize=(10, 8))
+sns.heatmap(panel[available].corr(), annot=True, fmt='.2f', cmap='RdBu_r',
+            center=0, vmin=-1, vmax=1, square=True, ax=ax)
+ax.set_title('Key Variable Correlations', fontweight='bold')
+plt.tight_layout()
+plt.show()
+
+---
+
+from src.analysis.eda import plot_heatwave_timeseries
+
+plot_heatwave_timeseries(panel, output_path=fig_dir / 'heatwave_timeseries.png')
+
+# Also show inline
+national = panel.groupby('year')[['hw_days', 'hw_events', 'summer_tmax_mean']].mean()
+
+fig, axes = plt.subplots(1, 3, figsize=(18, 5))
+
+axes[0].bar(national.index, national['hw_days'], color='#e74c3c', alpha=0.8)
+axes[0].set_title('Mean Heatwave Days per Year', fontweight='bold')
+axes[0].set_ylabel('Days')
+
+axes[1].bar(national.index, national['hw_events'], color='#e67e22', alpha=0.8)
+axes[1].set_title('Mean Heatwave Events per Year', fontweight='bold')
+axes[1].set_ylabel('Events')
+
+axes[2].plot(national.index, national['summer_tmax_mean'], 'o-', color='#c0392b', linewidth=2)
+axes[2].set_title('Mean Summer Tmax', fontweight='bold')
+axes[2].set_ylabel('°C')
+
+for ax in axes:
+    ax.set_xlabel('Year')
+    ax.grid(True, alpha=0.3)
+    ax.axvline(x=2022, color='darkred', linestyle='--', alpha=0.4)
+
+plt.tight_layout()
+plt.show()
+
+---
+
+from src.analysis.eda import plot_mortality_vs_heat
+
+# This produces a scatter of mortality rate vs heatwave days, colored by RSVI
+plot_mortality_vs_heat(panel, output_path=fig_dir / 'mortality_vs_heat.png')
+
+# If mortality_rate exists, show inline
+if 'mortality_rate' in panel.columns and 'hw_days' in panel.columns:
+    fig, ax = plt.subplots(figsize=(10, 7))
+    
+    color_col = 'rsvi' if 'rsvi' in panel.columns else 'year'
+    scatter = ax.scatter(panel['hw_days'], panel['mortality_rate'],
+                        c=panel[color_col], cmap='YlOrRd',
+                        alpha=0.7, edgecolors='white', linewidths=0.5, s=60)
+    plt.colorbar(scatter, label=color_col.upper())
+    
+    ax.set_xlabel('Heatwave Days')
+    ax.set_ylabel('Mortality Rate (per 100k)')
+    ax.set_title('Mortality vs. Heatwave Exposure', fontweight='bold')
+    ax.grid(True, alpha=0.3)
+    plt.tight_layout()
+    plt.show()
+else:
+    print("Mortality rate not available — skipping scatter plot.")
+    print("This will work once mortality data is loaded.")
+
+---
+
+# Save summary tables
+table_dir = get_path(cfg, 'tables')
+table_dir.mkdir(parents=True, exist_ok=True)
+
+save_dataframe(stats, table_dir / 'summary_stats.csv')
+
+print("\n✅ EDA complete. Figures saved to outputs/figures/, tables to outputs/tables/")
+print("\n➡️ Next: Notebook 05 — Panel Regression Analysis")
+
+---
+
+
+
+===== notebooks/05_regression_analysis.ipynb =====
+
+import sys, os
+project_root = os.path.abspath(os.path.join(os.getcwd(), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+from src.utils.config import load_config, get_path
+from src.utils.io import load_dataframe, save_dataframe
+
+cfg = load_config()
+print("Ready.")
+
+---
+
+# Load panel dataset
+panel_path = get_path(cfg, 'processed_data') / 'panel_dataset.csv'
+panel = load_dataframe(panel_path)
+
+print(f"Panel: {panel.shape}")
+print(f"Regions: {panel['nuts2_code'].nunique()}, Years: {panel['year'].nunique()}")
+print(f"\nAvailable variables for regression:")
+regression_vars = ['mortality_rate', 'hw_days', 'summer_tmax_anomaly', 'rsvi',
+                   'hw_days_x_rsvi', 'tmax_anomaly_x_rsvi', 'd2022',
+                   'hw_days_x_rsvi_x_d2022', 'covid_period']
+for v in regression_vars:
+    status = '✅' if v in panel.columns and not panel[v].isna().all() else '❌'
+    print(f"  {status} {v}")
+
+---
+
+from src.analysis.panel_regression import prepare_panel_index
+
+panel_idx = prepare_panel_index(panel)
+print(f"Index: {panel_idx.index.names}")
+print(f"Shape: {panel_idx.shape}")
+display(panel_idx.head())
+
+---
+
+from src.analysis.panel_regression import run_model_h1
+
+h1 = run_model_h1(panel_idx)
+
+if h1['results'] is not None:
+    print(h1['results'].summary)
+else:
+    print("Model could not be run — check that mortality_rate column exists.")
+    print("\nThis model requires mortality data to be loaded.")
+
+---
+
+from src.analysis.panel_regression import run_model_h2
+
+h2 = run_model_h2(panel_idx)
+
+if h2['results'] is not None:
+    print(h2['results'].summary)
+    
+    # Highlight key coefficient
+    if 'hw_days_x_rsvi' in h2['results'].params.index:
+        coef = h2['results'].params['hw_days_x_rsvi']
+        pval = h2['results'].pvalues['hw_days_x_rsvi']
+        sig = '***' if pval < 0.001 else '**' if pval < 0.01 else '*' if pval < 0.05 else ''
+        print(f"\n🔑 KEY RESULT: hw_days × RSVI = {coef:.4f} (p = {pval:.4f}) {sig}")
+        if coef > 0 and pval < 0.05:
+            print("   → Vulnerable regions experience MORE heat-related mortality.")
+else:
+    print("Model could not be run.")
+
+---
+
+from src.analysis.panel_regression import run_model_h3
+
+h3 = run_model_h3(panel_idx)
+
+if h3['results'] is not None:
+    print(h3['results'].summary)
+    
+    if 'hw_days_x_rsvi_x_d2022' in h3['results'].params.index:
+        coef = h3['results'].params['hw_days_x_rsvi_x_d2022']
+        pval = h3['results'].pvalues['hw_days_x_rsvi_x_d2022']
+        sig = '***' if pval < 0.001 else '**' if pval < 0.01 else '*' if pval < 0.05 else ''
+        print(f"\n🔑 KEY RESULT: hw_days × RSVI × D2022 = {coef:.4f} (p = {pval:.4f}) {sig}")
+else:
+    print("Model could not be run.")
+
+---
+
+from src.analysis.panel_regression import extract_results_table
+
+all_results = [h1, h2, h3]
+comparison = extract_results_table(all_results)
+
+if not comparison.empty:
+    print("Regression Results Comparison:")
+    display(comparison.style.format({
+        'coefficient': '{:.4f}',
+        'std_error': '{:.4f}',
+        't_stat': '{:.2f}',
+        'p_value': '{:.4f}',
+    }))
+    
+    # Save
+    table_dir = get_path(cfg, 'tables')
+    save_dataframe(comparison, table_dir / 'regression_results.csv', index=False)
+    print("\n✅ Saved to outputs/tables/regression_results.csv")
+else:
+    print("No results to compare — models could not be run.")
+
+---
+
+from src.analysis.diagnostics import compute_vif, residual_diagnostics
+
+# VIF check for multicollinearity
+exog_vars = ['hw_days', 'rsvi', 'hw_days_x_rsvi',
+             'summer_tmax_anomaly', 'tmax_anomaly_x_rsvi', 'covid_period']
+available = [v for v in exog_vars if v in panel.columns]
+
+if len(available) > 1:
+    vif = compute_vif(panel, available)
+    print("Variance Inflation Factors:")
+    display(vif)
+    
+    if vif['VIF'].max() > 10:
+        print("\n⚠️ VIF > 10 detected — consider removing collinear variables.")
+    else:
+        print("\n✅ No problematic multicollinearity detected.")
+
+---
+
+# Residual diagnostics for H2 model
+if h2['results'] is not None:
+    fig_dir = get_path(cfg, 'figures')
+    diag = residual_diagnostics(h2['results'], output_dir=fig_dir)
+    
+    print("Residual Diagnostics (H2 model):")
+    for k, v in diag.items():
+        print(f"  {k}: {v}")
+else:
+    print("No model results for diagnostics.")
+
+---
+
+# Sensitivity: exclude 2020 (COVID year)
+from src.analysis.diagnostics import sensitivity_exclude_covid
+
+if 'mortality_rate' in panel_idx.columns:
+    h2_no_covid = sensitivity_exclude_covid(panel_idx)
+    if h2_no_covid['results'] is not None:
+        print("Sensitivity Analysis — Excluding 2020:")
+        print(h2_no_covid['results'].summary)
+else:
+    print("Mortality rate needed for sensitivity analysis.")
+
+---
+
+# Marginal effect of heat on mortality at different RSVI levels
+if h2['results'] is not None:
+    params = h2['results'].params
+    beta_hw = params.get('hw_days', 0)
+    beta_int = params.get('hw_days_x_rsvi', 0)
+    
+    print("Marginal effect of 1 additional heatwave day on mortality:")
+    print(f"  At RSVI = 0.25 (low vulnerability):  {beta_hw + beta_int * 0.25:.4f}")
+    print(f"  At RSVI = 0.50 (median):             {beta_hw + beta_int * 0.50:.4f}")
+    print(f"  At RSVI = 0.75 (high vulnerability):  {beta_hw + beta_int * 0.75:.4f}")
+    print(f"  At RSVI = 1.00 (maximum):            {beta_hw + beta_int * 1.00:.4f}")
+else:
+    print("Model results needed for marginal effects.")
+
+print("\n➡️ Next: Notebook 06 — Visualization & Results")
+
+---
+
+
+
+===== notebooks/06_visualization.ipynb =====
+
+import sys, os
+project_root = os.path.abspath(os.path.join(os.getcwd(), '..'))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import geopandas as gpd
+
+from src.utils.config import load_config, get_path
+from src.utils.io import load_dataframe
+
+cfg = load_config()
+fig_dir = get_path(cfg, 'figures')
+fig_dir.mkdir(parents=True, exist_ok=True)
+
+# Load data
+panel = load_dataframe(get_path(cfg, 'processed_data') / 'panel_dataset.csv')
+print(f"Panel loaded: {panel.shape}")
+
+---
+
+# Load NUTS-2 boundaries
+from src.data.nuts2_boundaries import load_italy_nuts2
+from src.visualization.maps import merge_panel_with_geometry, plot_choropleth
+
+boundaries_dir = get_path(cfg, 'raw_data') / 'boundaries'
+
+try:
+    nuts2_gdf = load_italy_nuts2(boundaries_dir)
+    gdf = merge_panel_with_geometry(panel, nuts2_gdf)
+    print(f"Merged GeoDataFrame: {gdf.shape}")
+    has_geo = True
+except Exception as e:
+    print(f"Could not load boundaries: {e}")
+    print("Run Notebook 01 to download boundaries first.")
+    has_geo = False
+
+---
+
+# Map: Heatwave days in 2022
+if has_geo and 'hw_days' in gdf.columns:
+    gdf_2022 = gdf[gdf['year'] == 2022]
+    
+    plot_choropleth(
+        gdf_2022, 'hw_days',
+        title='Heatwave Days — Summer 2022',
+        cmap='YlOrRd',
+        legend_label='Number of Heatwave Days',
+        output_path=fig_dir / 'heatwave_map_2022.png',
+    )
+    
+    # Also show inline
+    fig, ax = plt.subplots(figsize=(8, 10))
+    gdf_2022.plot(column='hw_days', cmap='YlOrRd', legend=True,
+                  edgecolor='0.3', linewidth=0.5, ax=ax,
+                  legend_kwds={'label': 'Heatwave Days', 'shrink': 0.6})
+    ax.set_title('Heatwave Days — Summer 2022', fontsize=14, fontweight='bold')
+    ax.set_axis_off()
+    plt.tight_layout()
+    plt.show()
+
+---
+
+# Map: RSVI in 2022
+if has_geo and 'rsvi' in gdf.columns:
+    plot_choropleth(
+        gdf_2022, 'rsvi',
+        title='Social Vulnerability Index (RSVI) — 2022',
+        cmap='PuRd',
+        legend_label='RSVI (0=Low, 1=High)',
+        output_path=fig_dir / 'rsvi_map_2022.png',
+        vmin=0, vmax=1,
+    )
+
+---
+
+# Multi-year heatwave maps
+if has_geo:
+    from src.visualization.maps import plot_multi_year_choropleth
+    
+    years = sorted(panel['year'].unique())
+    if 'hw_days' in gdf.columns:
+        plot_multi_year_choropleth(
+            gdf, 'hw_days', years,
+            title='Heatwave Days Across Italy (2012–2022)',
+            output_path=fig_dir / 'heatwave_map_all_years.png',
+        )
+
+---
+
+from src.visualization.timeseries import plot_national_trends, plot_regional_comparison
+
+plot_national_trends(panel, output_path=fig_dir / 'national_trends.png')
+
+---
+
+# Regional comparison — top/bottom 5 by heatwave days
+if 'hw_days' in panel.columns:
+    plot_regional_comparison(
+        panel, 'hw_days', top_n=5,
+        output_path=fig_dir / 'regional_comparison_hw_days.png',
+    )
+
+---
+
+from src.visualization.case_studies import plot_case_study_pair
+
+for pair in cfg['case_studies']['pairs']:
+    print(f"\n{'='*60}")
+    print(f"Case Study: {pair['name']}")
+    print(f"  {pair['high_vulnerability']} (high) vs {pair['low_vulnerability']} (low)")
+    print(f"  Rationale: {pair['rationale']}")
+    print(f"{'='*60}")
+    
+    safe_name = pair['name'].lower().replace(' ', '_')
+    
+    plot_case_study_pair(
+        panel,
+        region_a=pair['high_vulnerability'],
+        region_b=pair['low_vulnerability'],
+        pair_name=pair['name'],
+        output_path=fig_dir / f'case_study_{safe_name}.png',
+    )
+
+---
+
+from src.visualization.regression_plots import plot_coefficient_comparison, plot_interaction_effect
+
+# Load regression results table
+table_dir = get_path(cfg, 'tables')
+results_path = table_dir / 'regression_results.csv'
+
+if results_path.exists():
+    results_table = load_dataframe(results_path)
+    
+    # Coefficient comparison across models
+    plot_coefficient_comparison(
+        results_table,
+        output_path=fig_dir / 'coeff_comparison.png',
+    )
+    print("✅ Coefficient comparison plot saved.")
+else:
+    print("❌ No regression results found. Run Notebook 05 first.")
+
+---
+
+# Interaction effect plot (marginal effect of heat at different RSVI levels)
+# This requires the fitted model object — reload if available
+
+try:
+    from src.analysis.panel_regression import prepare_panel_index, run_model_h2
+    
+    panel_idx = prepare_panel_index(panel)
+    h2 = run_model_h2(panel_idx)
+    
+    if h2['results'] is not None:
+        plot_interaction_effect(
+            panel, h2['results'],
+            heat_var='hw_days',
+            output_path=fig_dir / 'interaction_effect.png',
+        )
+        print("✅ Interaction effect plot saved.")
+except Exception as e:
+    print(f"Could not generate interaction plot: {e}")
+
+---
+
+print("Generated Outputs:")
+print("="*60)
+
+# Figures
+print("\n📊 Figures (outputs/figures/):")
+for f in sorted(fig_dir.glob('*.png')):
+    size_kb = f.stat().st_size / 1024
+    print(f"  {f.name}  ({size_kb:.0f} KB)")
+
+# Tables 
+print(f"\n📋 Tables (outputs/tables/):")
+for f in sorted(table_dir.glob('*')):
+    if f.name == '.gitkeep':
+        continue
+    size_kb = f.stat().st_size / 1024
+    print(f"  {f.name}  ({size_kb:.0f} KB)")
+
+print("\n✅ All visualizations complete!")
+print("\nThese figures can be directly included in the final paper.")
+
+---
+
