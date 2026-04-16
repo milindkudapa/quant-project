@@ -81,19 +81,31 @@ def download_earthmover_year(
             longitude=slice(bbox["west"], bbox["east"])
         )
 
-        # Select variables
-        # Earthmover: t2 (2m temp), d2 (2m dewpoint)
-        # We rename to match project defaults if possible, but we'll handle it in processing
+        # Select only the variables we need
         subset = subset[["t2", "d2"]]
 
-        # Rename to match CDS standard (t2m, d2m) for consistency if desired
+        # Rename to match CDS standard (t2m, d2m) for downstream consistency
         mapping = cfg["earthmover"].get("variable_mapping", {})
         if mapping:
             subset = subset.rename(mapping)
 
-        logger.info(f"Downloading/Saving {year} to NetCDF...")
-        # Since it's a small subset (~50MB per summer), we can compute and save directly
-        subset.to_netcdf(output_path)
+        logger.info(f"Loading {year} into memory...")
+        subset = subset.load()
+
+        # Fix time encoding: the Zarr store inherits 'hours since 1975-01-01'
+        # encoding which overflows on NetCDF write. Strip it and let xarray
+        # re-encode cleanly.
+        for var in subset.variables:
+            subset[var].encoding.clear()
+
+        # Set explicit, clean encoding for numeric variables
+        encoding = {}
+        for var in subset.data_vars:
+            encoding[var] = {"dtype": "float32", "zlib": True, "complevel": 4}
+        encoding["time"] = {"units": "hours since 2000-01-01", "calendar": "proleptic_gregorian"}
+
+        logger.info(f"Saving {year} to NetCDF...")
+        subset.to_netcdf(output_path, encoding=encoding)
         
         logger.success(f"Successfully saved {year} → {output_path}")
         return output_path

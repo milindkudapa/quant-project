@@ -123,31 +123,7 @@ def spatial_average_to_nuts2(
             logger.warning(f"No grid cells found for {nuts2_code}, skipping")
             continue
 
-        # Apply mask and compute spatial mean
-        for var in ["tmax", "tmin", "tmean", "dewpoint_mean"]:
-            if var in daily_ds:
-                data = daily_ds[var].values  # shape: (time, lat, lon)
-                masked = data[:, mask]  # shape: (time, n_cells)
-                spatial_mean = np.nanmean(masked, axis=1)
-
-                if var == "tmax":
-                    time_vals = daily_ds["valid_time"].values if "valid_time" in daily_ds.coords else daily_ds["time"].values
-                    for t_idx, t_val in enumerate(time_vals):
-                        if len(records) <= t_idx:
-                            records.append({
-                                "date": pd.Timestamp(t_val),
-                                "nuts2_code": nuts2_code,
-                            })
-                        elif records[t_idx].get("nuts2_code") != nuts2_code:
-                            records.append({
-                                "date": pd.Timestamp(t_val),
-                                "nuts2_code": nuts2_code,
-                            })
-
-                # This simplified approach needs restructuring for production;
-                # the proper implementation builds a list of records per region-day
-
-        # Better approach: iterate time steps
+        # Compute spatial mean for each time step and variable
         time_coord = "valid_time" if "valid_time" in daily_ds.coords else "time"
         times = daily_ds[time_coord].values
         for t_idx, t_val in enumerate(times):
