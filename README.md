@@ -34,7 +34,8 @@ Project/
 │   │
 │   ├── data/                       # Data acquisition & processing
 │   │   ├── __init__.py
-│   │   ├── download_era5.py        # ERA5-Land data via CDS API
+│   │   ├── download_earthmover.py  # ERA5 data streaming via AWS Zarr
+│   │   ├── download_era5.py        # Fallback ERA5-Land data via CDS API
 │   │   ├── process_mortality.py    # ISTAT/Eurostat mortality processing
 │   │   ├── process_climate.py      # Spatial aggregation of gridded climate
 │   │   ├── process_socioeconomic.py# Socioeconomic indicator processing
@@ -110,7 +111,8 @@ Project/
 ### Temperature / Heat Exposure (Independent Variable)
 | Source | Variables | Resolution |
 |---|---|---|
-| **ERA5-Land (Copernicus)** | Daily T_max, T_mean, T_min, dewpoint | ~9 km grid |
+| **Earthmover ERA5 (AWS Zarr)** | Daily T_max, T_mean, T_min, dewpoint | ~9 km grid |
+| ERA5-Land (Copernicus CDS) | *(Alternative/fallback dataset)* | ~9 km grid |
 | E-OBS (ECA&D) | Daily T_max, T_min, T_mean | ~10 km (robustness check) |
 
 ### Social Vulnerability (Moderators)
@@ -161,7 +163,7 @@ Where `αᵣ` = region fixed effects, `γₜ` = year fixed effects.
 ### Prerequisites
 - Python 3.11+
 - [uv](https://docs.astral.sh/uv/) package manager
-- CDS API key (for ERA5-Land data) — [register here](https://cds.climate.copernicus.eu/)
+- CDS API key *(Optional; only needed if Earthmover AWS connection fails)* — [register here](https://cds.climate.copernicus.eu/)
 
 ### Installation
 ```bash
@@ -180,8 +182,8 @@ Edit `config/config.yaml` to set:
 - Study period (default: 2012–2022)
 - Heatwave threshold percentile (default: 90th)
 - NUTS-2 region list
+- Climate dataset source (`earthmover` vs `era5_land`)
 - Data paths
-- CDS API credentials
 
 ---
 
@@ -202,8 +204,8 @@ make all         # Run everything
 
 ### Individual Steps
 ```bash
-# Download ERA5-Land data
-uv run python scripts/download_data.py --source era5
+# Download climate data (via Earthmover AWS Zarr in ~5 minutes)
+uv run python scripts/download_data.py --source earthmover
 
 # Run analysis only (assumes processed data exists)
 uv run python scripts/run_analysis.py
