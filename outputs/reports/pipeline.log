@@ -1,0 +1,94 @@
+2026-04-17 01:08:38 | INFO     | __main__ - ============================================================
+2026-04-17 01:08:38 | INFO     | __main__ - Running step: process_mortality
+2026-04-17 01:08:38 | INFO     | __main__ - ============================================================
+2026-04-17 01:08:38 | INFO     | src.data.process_mortality - Loading Eurostat mortality data from /Users/milind/Desktop/Academics/Semester 2/CLMT5202/Project/data/raw/mortality/demo_r_mwk2_ts__custom_21039108_linear_2_0.csv
+2026-04-17 01:08:39 | INFO     | src.data.process_mortality - Loaded 20664 Eurostat mortality records (Italian NUTS-2 filtered)
+2026-04-17 01:08:39 | INFO     | src.data.process_mortality - Aggregated to 4752 region-month records
+2026-04-17 01:08:39 | INFO     | src.data.process_mortality - Computed summer mortality for 132 region-years
+2026-04-17 01:08:39 | INFO     | src.utils.io - Saved 132 rows → /Users/milind/Desktop/Academics/Semester 2/CLMT5202/Project/data/interim/mortality_processed.parquet
+2026-04-17 01:08:39 | SUCCESS  | __main__ - Step 'process_mortality' completed in 0.7s
+2026-04-17 01:11:54 | INFO     | __main__ - ============================================================
+2026-04-17 01:11:54 | INFO     | __main__ - Running step: process_mortality
+2026-04-17 01:11:54 | INFO     | __main__ - ============================================================
+2026-04-17 01:11:54 | INFO     | src.data.process_mortality - Loading Eurostat mortality data from /Users/milind/Desktop/Academics/Semester 2/CLMT5202/Project/data/raw/mortality/demo_r_mwk2_ts__custom_21039108_linear_2_0.csv
+2026-04-17 01:11:55 | INFO     | src.data.process_mortality - Loaded 20664 Eurostat mortality records (Italian NUTS-2 filtered)
+2026-04-17 01:11:55 | INFO     | src.data.process_mortality - Aggregated to 4752 region-month records
+2026-04-17 01:11:55 | INFO     | src.data.process_mortality - Computed summer mortality for 132 region-years
+2026-04-17 01:11:55 | INFO     | src.utils.io - Saved 132 rows → /Users/milind/Desktop/Academics/Semester 2/CLMT5202/Project/data/interim/mortality_processed.parquet
+2026-04-17 01:11:55 | SUCCESS  | __main__ - Step 'process_mortality' completed in 0.6s
+2026-04-17 01:15:28 | INFO     | __main__ - ============================================================
+2026-04-17 01:15:28 | INFO     | __main__ - Running step: process_mortality
+2026-04-17 01:15:28 | INFO     | __main__ - ============================================================
+2026-04-17 01:15:28 | INFO     | src.data.process_mortality - Loading Eurostat mortality data from /Users/milind/Desktop/Academics/Semester 2/CLMT5202/Project/data/raw/mortality/demo_r_mwk2_ts__custom_21039156_linear_2_0.csv
+2026-04-17 01:15:29 | INFO     | src.data.process_mortality - Loaded 34440 Eurostat mortality records (Italian NUTS-2 filtered)
+2026-04-17 01:15:29 | INFO     | src.data.process_mortality - Aggregated to 7920 region-month records
+2026-04-17 01:15:29 | INFO     | src.data.process_mortality - Computed summer mortality for 220 region-years
+2026-04-17 01:15:29 | INFO     | src.utils.io - Saved 220 rows → /Users/milind/Desktop/Academics/Semester 2/CLMT5202/Project/data/interim/mortality_processed.parquet
+2026-04-17 01:15:29 | SUCCESS  | __main__ - Step 'process_mortality' completed in 0.3s
+2026-04-17 01:22:36 | INFO     | __main__ - ============================================================
+2026-04-17 01:22:36 | INFO     | __main__ - Running step: process_mortality
+2026-04-17 01:22:36 | INFO     | __main__ - ============================================================
+2026-04-17 01:22:36 | INFO     | src.data.process_mortality - Found primary dataset (ISTAT municipal). Generating exclusive outputs.
+2026-04-17 01:22:36 | INFO     | src.data.process_mortality - Loading ISTAT wide-format mortality data from /Users/milind/Desktop/Academics/Semester 2/CLMT5202/Project/data/raw/mortality/Dataset-decessi-comunali-giornalieri-4/comuni_giornaliero_31ottobre24.csv
+2026-04-17 01:22:51 | INFO     | src.data.process_mortality - Loaded 880 ISTAT mortality region-month records
+2026-04-17 01:22:51 | INFO     | src.data.process_mortality - Aggregated to 880 region-month records
+2026-04-17 01:22:51 | INFO     | src.data.process_mortality - Computed summer mortality for 220 region-years
+2026-04-17 01:22:51 | INFO     | src.utils.io - Saved 220 rows → /Users/milind/Desktop/Academics/Semester 2/CLMT5202/Project/data/interim/mortality_processed.parquet
+2026-04-17 01:22:51 | SUCCESS  | __main__ - Step 'process_mortality' completed in 14.5s
+2026-04-17 01:27:22 | INFO     | __main__ - ============================================================
+2026-04-17 01:27:22 | INFO     | __main__ - Running step: process_istat
+2026-04-17 01:27:22 | INFO     | __main__ - ============================================================
+2026-04-17 01:27:22 | INFO     | src.data.process_istat - Found ISTAT municipal dataset at /Users/milind/Desktop/Academics/Semester 2/CLMT5202/Project/data/raw/mortality/Dataset-decessi-comunali-giornalieri-4/comuni_giornaliero_31ottobre24.csv. Processing...
+2026-04-17 01:27:22 | INFO     | src.data.process_istat - Loading ISTAT wide-format mortality data from /Users/milind/Desktop/Academics/Semester 2/CLMT5202/Project/data/raw/mortality/Dataset-decessi-comunali-giornalieri-4/comuni_giornaliero_31ottobre24.csv
+2026-04-17 01:27:37 | INFO     | src.data.process_istat - Loaded 880 ISTAT mortality region-month records
+2026-04-17 01:27:37 | INFO     | src.data.process_istat - Computed summer mortality for 220 region-years
+2026-04-17 01:27:37 | INFO     | src.utils.io - Saved 220 rows → /Users/milind/Desktop/Academics/Semester 2/CLMT5202/Project/data/interim/mortality_processed.parquet
+2026-04-17 01:27:37 | SUCCESS  | __main__ - Step 'process_istat' completed in 14.6s
+2026-04-17 01:28:56 | INFO     | __main__ - ============================================================
+2026-04-17 01:28:56 | INFO     | __main__ - Running step: process_istat
+2026-04-17 01:28:56 | INFO     | __main__ - ============================================================
+2026-04-17 01:28:56 | INFO     | src.data.process_istat - Found ISTAT municipal dataset at /Users/milind/Desktop/Academics/Semester 2/CLMT5202/Project/data/raw/mortality/Dataset-decessi-comunali-giornalieri-4/comuni_giornaliero_31ottobre24.csv. Processing...
+2026-04-17 01:28:56 | INFO     | src.data.process_istat - Loading ISTAT wide-format mortality data from /Users/milind/Desktop/Academics/Semester 2/CLMT5202/Project/data/raw/mortality/Dataset-decessi-comunali-giornalieri-4/comuni_giornaliero_31ottobre24.csv
+2026-04-17 01:29:10 | INFO     | src.data.process_istat - Loaded 880 ISTAT mortality region-month records
+2026-04-17 01:29:10 | INFO     | src.data.process_istat - Computed summer mortality for 220 region-years
+2026-04-17 01:29:10 | INFO     | src.utils.io - Saved 220 rows → /Users/milind/Desktop/Academics/Semester 2/CLMT5202/Project/data/interim/mortality_processed.parquet
+2026-04-17 01:29:10 | SUCCESS  | __main__ - Step 'process_istat' completed in 14.4s
+2026-04-22 13:58:31 | INFO     | __main__ - ============================================================
+2026-04-22 13:58:31 | INFO     | __main__ - Running step: build_heatwave_features
+2026-04-22 13:58:31 | INFO     | __main__ - ============================================================
+2026-04-22 13:58:31 | INFO     | src.utils.io - Loaded 26840 rows ← /Users/milind/Desktop/Academics/Semester 2/CLMT5202/Project/data/interim/daily_regional_climate.parquet
+2026-04-22 13:58:31 | INFO     | src.features.heatwave - Computed 90th percentile thresholds for 20 regions (range: 20.1°C – 34.1°C)
+2026-04-22 13:58:31 | INFO     | src.features.heatwave - Detected 2021 heatwave days across 388 events (threshold: 3+ consecutive days)
+2026-04-22 13:58:31 | INFO     | src.features.heatwave - Computed heatwave metrics for 220 region-years
+2026-04-22 13:58:31 | INFO     | src.utils.io - Saved 220 rows → /Users/milind/Desktop/Academics/Semester 2/CLMT5202/Project/data/interim/heatwave_metrics.parquet
+2026-04-22 13:58:31 | INFO     | src.utils.io - Saved 26840 rows → /Users/milind/Desktop/Academics/Semester 2/CLMT5202/Project/data/interim/daily_heatwave_flags.parquet
+2026-04-22 13:58:31 | SUCCESS  | __main__ - Step 'build_heatwave_features' completed in 0.1s
+2026-04-22 13:58:48 | INFO     | __main__ - ============================================================
+2026-04-22 13:58:48 | INFO     | __main__ - Running step: assemble_panel
+2026-04-22 13:58:48 | INFO     | __main__ - ============================================================
+2026-04-22 13:58:48 | INFO     | src.utils.io - Loaded 220 rows ← /Users/milind/Desktop/Academics/Semester 2/CLMT5202/Project/data/interim/heatwave_metrics.parquet
+2026-04-22 13:58:48 | INFO     | src.utils.io - Loaded 220 rows ← /Users/milind/Desktop/Academics/Semester 2/CLMT5202/Project/data/interim/mortality_processed.parquet
+2026-04-22 13:58:48 | INFO     | src.utils.io - Loaded 220 rows ← /Users/milind/Desktop/Academics/Semester 2/CLMT5202/Project/data/interim/rsvi.parquet
+2026-04-22 13:58:48 | INFO     | src.analysis.panel_dataset - Merged mortality data: (220, 3)
+2026-04-22 13:58:48 | INFO     | src.analysis.panel_dataset - Merged RSVI data: (220, 11)
+2026-04-22 13:58:48 | INFO     | src.analysis.panel_dataset - Panel dataset: 220 observations, 20 regions, 11 years
+2026-04-22 13:58:48 | INFO     | src.analysis.panel_dataset - Added derived variables. Panel columns: ['nuts2_code', 'year', 'hw_days', 'hw_events', 'hw_max_duration', 'hw_intensity', 'summer_tmax_mean', 'summer_tmax_anomaly', 'summer_deaths', 'rsvi', 'subidx_socioeconomic', 'subidx_age_vulnerability', 'subidx_healthcare_access', 'poverty_rate', 'gdp_per_capita', 'unemployment_rate', 'hospital_beds', 'pct_65plus', 'd2022', 'covid_period', 'hw_days_x_rsvi', 'tmax_anomaly_x_rsvi', 'hw_days_x_rsvi_x_d2022', 'tmax_anomaly_x_rsvi_x_d2022', 'region_name']
+2026-04-22 13:58:48 | INFO     | src.utils.io - Saved 220 rows → /Users/milind/Desktop/Academics/Semester 2/CLMT5202/Project/data/processed/panel_dataset.csv
+2026-04-22 13:58:48 | INFO     | src.utils.io - Saved 220 rows → /Users/milind/Desktop/Academics/Semester 2/CLMT5202/Project/data/processed/panel_dataset.parquet
+2026-04-22 13:58:48 | SUCCESS  | __main__ - Step 'assemble_panel' completed in 0.1s
+2026-04-22 14:05:29 | INFO     | __main__ - ============================================================
+2026-04-22 14:05:29 | INFO     | __main__ - Running step: assemble_panel
+2026-04-22 14:05:29 | INFO     | __main__ - ============================================================
+2026-04-22 14:05:29 | INFO     | src.utils.io - Loaded 220 rows ← /Users/milind/Desktop/Academics/Semester 2/CLMT5202/Project/data/interim/heatwave_metrics.parquet
+2026-04-22 14:05:29 | INFO     | src.utils.io - Loaded 220 rows ← /Users/milind/Desktop/Academics/Semester 2/CLMT5202/Project/data/interim/mortality_processed.parquet
+2026-04-22 14:05:29 | INFO     | src.utils.io - Loaded 220 rows ← /Users/milind/Desktop/Academics/Semester 2/CLMT5202/Project/data/interim/rsvi.parquet
+2026-04-22 14:05:29 | INFO     | src.utils.io - Loaded 4536 rows ← /Users/milind/Desktop/Academics/Semester 2/CLMT5202/Project/data/raw/socioeconomic/eurostat_population_by_age_nuts2.csv
+2026-04-22 14:05:29 | INFO     | src.analysis.panel_dataset - Loaded population data: 220 region-years
+2026-04-22 14:05:29 | INFO     | src.analysis.panel_dataset - Merged mortality data: (220, 3)
+2026-04-22 14:05:29 | INFO     | src.analysis.panel_dataset - Merged RSVI data: (220, 11)
+2026-04-22 14:05:29 | INFO     | src.analysis.panel_dataset - Merged population data: (220, 3)
+2026-04-22 14:05:29 | INFO     | src.analysis.panel_dataset - Panel dataset: 220 observations, 20 regions, 11 years
+2026-04-22 14:05:29 | INFO     | src.analysis.panel_dataset - Added derived variables. Panel columns: ['nuts2_code', 'year', 'hw_days', 'hw_events', 'hw_max_duration', 'hw_intensity', 'summer_tmax_mean', 'summer_tmax_anomaly', 'summer_deaths', 'rsvi', 'subidx_socioeconomic', 'subidx_age_vulnerability', 'subidx_healthcare_access', 'poverty_rate', 'gdp_per_capita', 'unemployment_rate', 'hospital_beds', 'pct_65plus', 'population', 'mortality_rate', 'log_mortality', 'mortality_rate_std', 'd2022', 'covid_period', 'hw_days_x_rsvi', 'tmax_anomaly_x_rsvi', 'hw_days_x_rsvi_x_d2022', 'tmax_anomaly_x_rsvi_x_d2022', 'region_name']
+2026-04-22 14:05:29 | INFO     | src.utils.io - Saved 220 rows → /Users/milind/Desktop/Academics/Semester 2/CLMT5202/Project/data/processed/panel_dataset.csv
+2026-04-22 14:05:29 | INFO     | src.utils.io - Saved 220 rows → /Users/milind/Desktop/Academics/Semester 2/CLMT5202/Project/data/processed/panel_dataset.parquet
+2026-04-22 14:05:29 | SUCCESS  | __main__ - Step 'assemble_panel' completed in 0.0s
