@@ -46,6 +46,7 @@ PIPELINE_STEPS = [
     "download_boundaries",
     "download_era5",
     "process_climate",
+    "process_istat",
     "process_mortality",
     "process_socioeconomic",
     "build_heatwave_features",
@@ -94,6 +95,10 @@ def run_step(step_name: str, cfg: dict) -> None:
     elif step_name == "process_climate":
         from src.data.process_climate import process_climate_data
         process_climate_data(cfg)
+
+    elif step_name == "process_istat":
+        from src.data.process_istat import process_istat_data
+        process_istat_data(cfg)
 
     elif step_name == "process_mortality":
         from src.data.process_mortality import process_mortality_data

@@ -151,7 +151,7 @@ def sensitivity_exclude_covid(
     y = model_data[dep_var]
     x = model_data[available]
 
-    model = PanelOLS(y, x, entity_effects=True, time_effects=True)
+    model = PanelOLS(y, x, entity_effects=True, time_effects=True, drop_absorbed=True)
     results = model.fit(cov_type="clustered", cluster_entity=True)
 
     logger.info(f"Sensitivity (excl. 2020) — R²: {results.rsquared:.4f}")

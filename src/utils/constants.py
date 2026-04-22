@@ -33,10 +33,10 @@ NUTS2_CODES = [
     "ITC2",  # Valle d'Aosta
     "ITC3",  # Liguria
     "ITC4",  # Lombardia
-    "ITH1",  # Trentino-Alto Adige
-    "ITH2",  # Veneto
-    "ITH3",  # Friuli-Venezia Giulia
-    "ITH4",  # Emilia-Romagna
+    "ITH1",  # Trentino-Alto Adige (Bolzano + Trento merged; ISTAT reports as one region)
+    "ITH3",  # Veneto
+    "ITH4",  # Friuli-Venezia Giulia
+    "ITH5",  # Emilia-Romagna
     "ITI1",  # Toscana
     "ITI2",  # Umbria
     "ITI3",  # Marche

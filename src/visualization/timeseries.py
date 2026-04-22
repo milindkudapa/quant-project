@@ -34,9 +34,13 @@ def plot_national_trends(
     figsize : tuple
         Figure size.
     """
-    national = panel.groupby("year").agg({
-        col: "mean" for col in panel.select_dtypes(include=[np.number]).columns
-    }).reset_index()
+    numeric_cols = [
+        col for col in panel.select_dtypes(include=[np.number]).columns
+        if col != "year"
+    ]
+    national = panel.groupby("year").agg(
+        {col: "mean" for col in numeric_cols}
+    ).reset_index()
 
     fig, axes = plt.subplots(2, 2, figsize=figsize)
 
