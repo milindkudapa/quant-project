@@ -85,7 +85,7 @@ def run_model_h1(
     y = model_data[dep_var]
     x = model_data[exog_vars]
 
-    model = PanelOLS(y, x, entity_effects=True, time_effects=True)
+    model = PanelOLS(y, x, entity_effects=True, time_effects=True, drop_absorbed=True)
 
     if cluster:
         results = model.fit(cov_type="clustered", cluster_entity=True)
@@ -145,7 +145,7 @@ def run_model_h2(
     y = model_data[dep_var]
     x = model_data[exog_vars]
 
-    model = PanelOLS(y, x, entity_effects=True, time_effects=True)
+    model = PanelOLS(y, x, entity_effects=True, time_effects=True, drop_absorbed=True)
 
     if cluster:
         results = model.fit(cov_type="clustered", cluster_entity=True)
@@ -205,7 +205,7 @@ def run_model_h3(
     y = model_data[dep_var]
     x = model_data[exog_vars]
 
-    model = PanelOLS(y, x, entity_effects=True, time_effects=True)
+    model = PanelOLS(y, x, entity_effects=True, time_effects=True, drop_absorbed=True)
 
     if cluster:
         results = model.fit(cov_type="clustered", cluster_entity=True)

@@ -29,6 +29,11 @@ from src.utils.io import save_dataframe
 def load_nuts2_boundaries(boundaries_path: Path) -> gpd.GeoDataFrame:
     """Load NUTS-2 boundaries for Italy.
 
+    Loads the 20 project NUTS-2 regions. Because ISTAT reports
+    Trentino-Alto Adige as a single region, the Eurostat polygons for
+    ITH1 (Bolzano) and ITH2 (Trento) are dissolved into one "ITH1" geometry
+    so that the climate spatial average covers the full combined region.
+
     Parameters
     ----------
     boundaries_path : Path
@@ -37,13 +42,24 @@ def load_nuts2_boundaries(boundaries_path: Path) -> gpd.GeoDataFrame:
     Returns
     -------
     gpd.GeoDataFrame
-        GeoDataFrame with NUTS-2 geometries for Italy.
+        GeoDataFrame with NUTS-2 geometries for Italy (20 regions).
     """
     gdf = gpd.read_file(boundaries_path)
-    # Filter to Italian NUTS-2 regions
-    italy = gdf[gdf["NUTS_ID"].isin(NUTS2_CODES)].copy()
+    # Load project regions plus ITH2 (needed for the ITH1 merge below)
+    load_codes = list(NUTS2_CODES) + ["ITH2"]
+    italy = gdf[gdf["NUTS_ID"].isin(load_codes)].copy()
     italy = italy.to_crs("EPSG:4326")
-    logger.info(f"Loaded {len(italy)} Italian NUTS-2 boundaries")
+
+    # Merge ITH1 (Bolzano) and ITH2 (Trento) into a single ITH1 polygon
+    # to match ISTAT's combined Trentino-Alto Adige regional reporting.
+    trentino = italy[italy["NUTS_ID"].isin(["ITH1", "ITH2"])]
+    merged_geom = trentino.geometry.unary_union
+    ith1_idx = italy.index[italy["NUTS_ID"] == "ITH1"][0]
+    italy.at[ith1_idx, "geometry"] = merged_geom
+    italy.at[ith1_idx, "NUTS_NAME"] = "Trentino-Alto Adige/Südtirol"
+    italy = italy[italy["NUTS_ID"] != "ITH2"].copy()
+
+    logger.info(f"Loaded {len(italy)} Italian NUTS-2 boundaries (ITH1+ITH2 dissolved into ITH1)")
     return italy
 
 

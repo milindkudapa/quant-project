@@ -16,8 +16,73 @@ from typing import Any
 import pandas as pd
 from loguru import logger
 
+import numpy as np
+
 from src.utils.config import load_config, get_path, get_region_mapping
 from src.utils.io import load_dataframe, save_dataframe
+
+
+def load_population(cfg: dict) -> pd.DataFrame:
+    """Load total regional population per year from Eurostat raw file.
+
+    Extracts sex=Total, age=Total rows and backfills 2012-2013 from 2014
+    (the earliest available year in the Eurostat NUTS-2 population dataset).
+
+    Parameters
+    ----------
+    cfg : dict
+        Configuration dictionary.
+
+    Returns
+    -------
+    pd.DataFrame
+        Columns: nuts2_code, year, population. 220 rows (20 regions × 11 years).
+    """
+    pop_path = (
+        get_path(cfg, "raw_data")
+        / "socioeconomic"
+        / "eurostat_population_by_age_nuts2.csv"
+    )
+    if not pop_path.exists():
+        logger.warning(f"Population file not found: {pop_path}")
+        return pd.DataFrame()
+
+    raw = load_dataframe(pop_path)
+
+    pop = raw[
+        (raw["sex: Sex"] == "T: Total")
+        & (raw["age: Age class"] == "TOTAL: Total")
+    ][
+        [
+            "geo: Geopolitical entity (reporting)",
+            "TIME_PERIOD: Time",
+            "OBS_VALUE: Observation value",
+        ]
+    ].copy()
+
+    pop.columns = ["geo_raw", "year", "population"]
+    pop["nuts2_code"] = pop["geo_raw"].str.split(":").str[0].str.strip()
+    pop["year"] = pop["year"].astype(int)
+    pop = pop[["nuts2_code", "year", "population"]].dropna()
+
+    # Keep only Italian NUTS-2 regions within study period
+    from src.utils.constants import NUTS2_CODES
+    study_start = cfg["study"]["start_year"]
+    study_end = cfg["study"]["end_year"]
+
+    it_codes = NUTS2_CODES
+    pop = pop[pop["nuts2_code"].isin(it_codes) & pop["year"].between(study_start, study_end)]
+
+    # Backfill years earlier than the file's earliest year using that year's values
+    min_available = pop["year"].min()
+    for y in range(study_start, min_available):
+        base = pop[pop["year"] == min_available].copy()
+        base["year"] = y
+        pop = pd.concat([pop, base], ignore_index=True)
+
+    pop = pop.sort_values(["nuts2_code", "year"]).reset_index(drop=True)
+    logger.info(f"Loaded population data: {len(pop)} region-years")
+    return pop
 
 
 def merge_panel_components(
@@ -90,6 +155,11 @@ def add_derived_variables(panel: pd.DataFrame) -> pd.DataFrame:
     # Mortality rate (per 100,000 population)
     if "summer_deaths" in df.columns and "population" in df.columns:
         df["mortality_rate"] = (df["summer_deaths"] / df["population"]) * 100_000
+        df["log_mortality"] = np.log(df["mortality_rate"])
+        df["mortality_rate_std"] = (
+            (df["mortality_rate"] - df["mortality_rate"].mean())
+            / df["mortality_rate"].std()
+        )
 
     # 2022 dummy variable
     df["d2022"] = (df["year"] == 2022).astype(int)
@@ -171,8 +241,11 @@ def build_panel_dataset(
             "Heatwave metrics are required. Run feature engineering first."
         )
 
+    # Load population (needed for mortality_rate in add_derived_variables)
+    population = load_population(cfg)
+
     # Merge
-    panel = merge_panel_components(mortality, heatwave, rsvi)
+    panel = merge_panel_components(mortality, heatwave, rsvi, population)
     panel = add_derived_variables(panel)
 
     # Sort and save

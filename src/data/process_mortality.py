@@ -19,7 +19,7 @@ import pandas as pd
 from loguru import logger
 
 from src.utils.config import load_config, get_path, get_region_mapping
-from src.utils.constants import SUMMER_MONTHS
+from src.utils.constants import SUMMER_MONTHS, NUTS2_CODES
 from src.utils.io import save_dataframe
 
 
@@ -85,7 +85,45 @@ def load_eurostat_mortality(filepath: Path) -> pd.DataFrame:
     else:
         df = pd.read_csv(filepath)
 
-    logger.info(f"Loaded {len(df)} Eurostat mortality records")
+    # Standardize Eurostat Data Browser format if present
+    rename_map = {}
+    for col in df.columns:
+        col_lower = col.lower()
+        if "geo:" in col_lower or "geo" == col_lower:
+            rename_map[col] = "nuts2_code"
+        elif "time_period" in col_lower:
+            rename_map[col] = "time_period"
+        elif "obs_value" in col_lower:
+            rename_map[col] = "deaths"
+        elif "sex" in col_lower:
+            rename_map[col] = "sex"
+            
+    df = df.rename(columns=rename_map)
+
+    if "nuts2_code" in df.columns:
+        # Extract just the code from 'ITG1: Sicilia'
+        df["nuts2_code"] = df["nuts2_code"].astype(str).str.split(":").str[0].str.strip()
+        # Merge ITH2 (Trento) into ITH1 (Trentino-Alto Adige) to match ISTAT's
+        # single-region reporting and the merged ITH1 boundary in climate data.
+        df.loc[df["nuts2_code"] == "ITH2", "nuts2_code"] = "ITH1"
+        # Filter to only Italian NUTS-2 regions (now includes ITH5=Emilia-Romagna)
+        df = df[df["nuts2_code"].isin(NUTS2_CODES)].copy()
+
+    if "time_period" in df.columns:
+        # Convert weekly format '2015-W01' to a datetime (Monday of that week)
+        is_weekly = df["time_period"].astype(str).str.contains("-W").any()
+        if is_weekly:
+            time_str = df["time_period"].astype(str) + "-1"
+            df["date"] = pd.to_datetime(time_str, format="%G-W%V-%u", errors="coerce")
+        else:
+            df["date"] = pd.to_datetime(df["time_period"], errors="coerce")
+
+    # Clean deaths column (sometimes has characters or spaces in raw Eurostat)
+    if "deaths" in df.columns:
+        df["deaths"] = pd.to_numeric(df["deaths"], errors="coerce")
+        df = df.dropna(subset=["deaths"])
+
+    logger.info(f"Loaded {len(df)} Eurostat mortality records (Italian NUTS-2 filtered)")
     return df
 
 
@@ -179,9 +217,9 @@ def process_mortality_data(
     output_path = get_path(cfg, "interim_data") / "mortality_processed.parquet"
 
     # Try ISTAT data first, fall back to Eurostat
-    istat_files = list(raw_dir.glob("*.csv")) + list(raw_dir.glob("*.xlsx"))
+    raw_files = list(raw_dir.glob("*.csv")) + list(raw_dir.glob("*.xlsx"))
 
-    if not istat_files:
+    if not raw_files:
         logger.warning("No mortality data files found in data/raw/mortality/")
         logger.info(
             "Please download mortality data from ISTAT or Eurostat and "
@@ -191,9 +229,14 @@ def process_mortality_data(
 
     # Load and process each file
     all_frames = []
-    for f in istat_files:
+    for f in raw_files:
         try:
-            df = load_istat_mortality(f) if f.suffix == ".csv" else pd.read_excel(f)
+            # We guess the format based on columns inside the loader
+            if "eurostat" in f.name.lower() or "demo_r" in f.name.lower() or "ts" in f.name.lower():
+                df = load_eurostat_mortality(f)
+            else:
+                df = load_istat_mortality(f) if f.suffix == ".csv" else pd.read_excel(f)
+                
             all_frames.append(df)
         except Exception as e:
             logger.error(f"Failed to load {f}: {e}")
@@ -208,6 +251,11 @@ def process_mortality_data(
         monthly = aggregate_to_nuts2_monthly(combined)
         summer = compute_summer_mortality(monthly)
         save_dataframe(summer, output_path, index=False)
+        save_dataframe(
+            summer, 
+            get_path(cfg, "interim_data") / "mortality_processed_eurostat.parquet", 
+            index=False
+        )
         return summer
 
     # If columns don't match expected format, save as-is for manual inspection

@@ -140,9 +140,9 @@ regions:
     ITC3: "Liguria"
     ITC4: "Lombardia"
     ITH1: "Trentino-Alto Adige"
-    ITH2: "Veneto"  # Note: sometimes coded as ITD3
-    ITH3: "Friuli-Venezia Giulia"
-    ITH4: "Emilia-Romagna"  # Note: sometimes coded as ITD5
+    ITH3: "Veneto"
+    ITH4: "Friuli-Venezia Giulia"
+    ITH5: "Emilia-Romagna"
     ITI1: "Toscana"
     ITI2: "Umbria"
     ITI3: "Marche"
