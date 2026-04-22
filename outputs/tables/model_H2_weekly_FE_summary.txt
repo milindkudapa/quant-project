@@ -4,7 +4,7 @@ Dep. Variable:     log_mortality_rate_week   R-squared:                        0
 Estimator:                        PanelOLS   R-squared (Between):              0.0609
 No. Observations:                     3380   R-squared (Within):               0.5305
 Date:                     Wed, Apr 22 2026   R-squared (Overall):              0.0611
-Time:                             15:02:15   Log-likelihood                    3515.4
+Time:                             15:25:11   Log-likelihood                    3515.4
 Cov. Estimator:                  Clustered                                           
                                              F-statistic:                      96.213
 Entities:                               20   P-value                           0.0000
